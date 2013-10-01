@@ -51,14 +51,18 @@ echo "Untaring HBase tarball"
 tar -zxf hbase-0.94.11.tar.gz
 ls -altrh hb*
 
+#Chmod to wide open permissions so anyone can run hbase.
+#insecure but no big deal
+sudo chmod -R 777 hbase-0.94.11
+
 yum install -y java-1.7.0-openjdk-devel
 yum install -y java-1.7.0-openjdk
 
 #Now start back with hbase installation 
 mkdir -p /mnt/glusterfs/hbase
 
-# overwrite conf files
-cp -rf /vagrant/hbase-conf/* /home/vagrant/hbase-0.94.11/conf/ > /dev/null 2>&1
+
+# 
 rm hbase-0.94.11.tar.gz
 
 if [ ! -e ".bash_profile" ]; then
@@ -73,20 +77,25 @@ sudo chmod -R 777 /home/vagrant/hbase-0.94.11/
 #Manually write a very simply /etc/hosts file.  
 #Otherwise there'll be all sorts of drama.
 sudo echo "127.0.0.1	hmaster" > /etc/hosts
-sudo echo "hmaster" > ./hbase-0.94.11/conf/regionservers
+
 sudo chmod -R 777 /etc/hosts
-echo "Setting hostname to $1"
-sudo hostname $1
+
+#echo "Setting hostname to $1"
+sudo hostname hmaster
 
 #A quick test ssh to make host key verified
 ssh -o StrictHostKeyChecking=no root@hmaster
 
 echo "Starting HBase as root"
-sudo echo "127.0.0.1 $1" > /etc/hosts
-cp /vagrant/regionservers ./hbase-0.94.11/conf/regionservers
 #sudo echo "hmaster" > ./hbase-0.94.11/conf/regionservers
-sudo ./hbase-0.94.11/bin/start-hbase.sh
+cp /vagrant/hbase-site.xml /home/vagrant/hbase-0.94.11/conf/
+cp /vagrant/regionservers /home/vagrant/hbase-0.94.11/conf/
+cp /vagrant/hbase-env.sh /home/vagrant/hbase-0.94.11/conf/
+
 sudo hostname hmaster
+
+sudo ./hbase-0.94.11/bin/start-hbase.sh
+
 
 echo -e "Ready!\n"
 echo "----------"
@@ -94,3 +103,11 @@ echo "For HBase shell, ssh as root and type: 'hbase shell'"
 echo "'start-hbase' to start, 'stop-hbase' to stop."
 echo -e "----------\n"
 
+#Now, a quick smoke test!
+sudo hbase-0.94.11/bin/hbase shell -d <<EOF
+create 't1','f1' 
+put 't1', 'row1', 'f1:a', 'val1'
+scan 't1'
+EOF
+
+echo "Test result : $?"
