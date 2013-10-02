@@ -58,4 +58,35 @@
 		<value>lo</value>
 	</property>
 
+  <property>
+    <name>fs.glusterfs.impl</name>
+    <value>org.apache.hadoop.fs.glusterfs.GlusterFileSystem</value>
+  </property>
+
+  <property>
+    <name>fs.default.name</name>
+    <value>glusterfs:///</value>
+  </property>
+
+  <property>
+    <name>fs.glusterfs.volname</name>
+    <value>HadoopVol</value>
+  </property>
+
+  <property>
+    <name>fs.glusterfs.mount</name>
+    <value>/mnt/glusterfs</value>
+  </property>
+
+  <property>
+    <name>fs.glusterfs.server</name>
+    <value>localhost</value>
+  </property>
+
+  <property>
+  <name>fs.glusterfs.write.buffer.size</name>
+  <value>1024</value>
+  </property>
+
+
 </configuration>

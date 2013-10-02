@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-
+hostname
 #Copy private key ...
 echo "-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzI
@@ -61,10 +61,6 @@ yum install -y java-1.7.0-openjdk
 #Now start back with hbase installation 
 mkdir -p /mnt/glusterfs/hbase
 
-
-# 
-rm hbase-0.94.11.tar.gz
-
 if [ ! -e ".bash_profile" ]; then
 	cp /vagrant/bash_profile /home/vagrant/.bash_profile
 	sudo chmod +x /home/vagrant/.bash_profile
@@ -80,9 +76,6 @@ sudo echo "127.0.0.1	hmaster" > /etc/hosts
 
 sudo chmod -R 777 /etc/hosts
 
-#echo "Setting hostname to $1"
-sudo hostname hmaster
-
 #A quick test ssh to make host key verified
 ssh -o StrictHostKeyChecking=no root@hmaster
 
@@ -92,10 +85,7 @@ cp /vagrant/hbase-site.xml /home/vagrant/hbase-0.94.11/conf/
 cp /vagrant/regionservers /home/vagrant/hbase-0.94.11/conf/
 cp /vagrant/hbase-env.sh /home/vagrant/hbase-0.94.11/conf/
 
-sudo hostname hmaster
-
 sudo ./hbase-0.94.11/bin/start-hbase.sh
-
 
 echo -e "Ready!\n"
 echo "----------"
@@ -103,6 +93,8 @@ echo "For HBase shell, ssh as root and type: 'hbase shell'"
 echo "'start-hbase' to start, 'stop-hbase' to stop."
 echo -e "----------\n"
 
+echo "Waiting 30 seconds to run smoke test.."
+sleep 30
 #Now, a quick smoke test!
 sudo hbase-0.94.11/bin/hbase shell -d <<EOF
 create 't1','f1' 
