@@ -152,14 +152,14 @@ if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
 	echo "result : $?"         
 	echo "...Mounting gluster to $VOL : mount = $MNT"
 	
-	mnt_cmd="sudo mkdir -m 777 $MNT && sudo mount -t glusterfs 127.0.0.1:$VOL $MNT"
+	mnt_cmd="sudo mkdir -m 777 $MNT ; sudo mount -t glusterfs 127.0.0.1:$VOL $MNT"
 	echo "Mount Command = $mnt_cmd"
 	ssh -o "StrictHostKeyChecking no" root@10.10.10.11 "$mnt_cmd > /tmp/logmount"
 	ssh -o "StrictHostKeyChecking no" root@10.10.10.12 "$mnt_cmd > /tmp/logmount"
         echo "Done mounting ..."
 	
 	# Now, test if gluster was mounter
-	if [ ! mount | grep -q "gluster" ] ; then 
+	if ! mount | grep -q "gluster" ; then 
 		echo "gluster not mounted :( :( :( "        
 		mount
 		echo "EXITING NOW ^^ MOUNT RESULTS"
