@@ -1,5 +1,25 @@
 #!/usr/bin/env bash
-hostname
+iptables -F
+setenforce 0
+
+MNT=/mnt/glusterfs
+
+#GLUSTER install, and make a local brick called /mnt/brick1
+yum install -y glusterfs glusterfs-server glusterfs-fuse
+/usr/sbin/glusterd -p /run/glusterd.pid
+BRICK=/mnt/brick1
+#Make brick
+sudo truncate -s 1G /mnt/brick1.raw ;
+yes | sudo mkfs.ext4 /mnt/brick1.raw ;
+#Make mount folder for brick
+sudo mkdir /mnt/brick1
+#Mount brick folder
+sudo mount -t ext4 -o loop /mnt/brick1.raw /mnt/brick1 ;
+#Done with initial gluster stuff... Will create  a volume 
+#Pointing to these bricks later...
+
+echo "Mounting raw brick :: DONE Mounting!!!"
+
 #Copy private key ...
 echo "-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzI
@@ -60,7 +80,6 @@ yum install -y java-1.7.0-openjdk
 
 #Now start back with hbase installation 
 mkdir -p /mnt/glusterfs/hbase
-
 if [ ! -e ".bash_profile" ]; then
 	cp /vagrant/bash_profile /home/vagrant/.bash_profile
 	sudo chmod +x /home/vagrant/.bash_profile
@@ -76,26 +95,106 @@ sudo echo "127.0.0.1	hmaster" > /etc/hosts
 
 sudo chmod -R 777 /etc/hosts
 
-#A quick test ssh to make host key verified
-ssh -o StrictHostKeyChecking=no root@hmaster
-
-echo "Starting HBase as root"
-#sudo echo "hmaster" > ./hbase-0.94.11/conf/regionservers
 cp /vagrant/hbase-site.xml /home/vagrant/hbase-0.94.11/conf/
 cp /vagrant/regionservers /home/vagrant/hbase-0.94.11/conf/
 cp /vagrant/hbase-env.sh /home/vagrant/hbase-0.94.11/conf/
 
-sudo ./hbase-0.94.11/bin/start-hbase.sh
+MNT=/mnt/glusterfs
 
-echo -e "Ready!\n"
-echo "----------"
-echo "For HBase shell, ssh as root and type: 'hbase shell'"
-echo "'start-hbase' to start, 'stop-hbase' to stop."
-echo -e "----------\n"
+echo " `hostname` Turning off iptables, again."
+iptables -F
 
-echo "Waiting 30 seconds to run smoke test.."
-sleep 30
-#Now, a quick smoke test!
+#HEAD NODE ONLY, EXPECTS PROVISIONING TO HAPPEN IN ORDER
+if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
+	#### GLUSTER CLUSTER SETUP #####
+ 	sleep 1
+        VOL="HadoopVol"
+	echo "...Peer probing.."
+	echo "`whoami` <-- me"
+
+	########################################################################
+	### Even though vagrant shell provisioner runs as root ... #############
+	### I think , for some reason, that explicit root@ is needed in ssh? ###
+        ### Also, this is a little hackish : It peer probes in both directions,#
+        ### Just for some redundancy - in case the first one fails. Related to #
+	### The asynchronous nature of peer probing ############################
+	echo "ssh peer attempt #1"
+	sleep 1
+	ssh -o "StrictHostKeyChecking no" root@10.10.10.11 "sudo gluster peer probe 10.10.10.12"
+	echo "ssh peer attempt #2"
+	sleep 1
+	ssh -o "StrictHostKeyChecking no" root@10.10.10.12 "sudo gluster peer probe 10.10.10.11"
+	sleep 1
+	echo "local peer attempt, normal, #3"
+	# One last time... #####################################################
+	gluster peer probe 10.10.10.11
+	exitc=$?
+	########################################################################
+	########################################################################
+
+	if [[ ! "$exitc" == 0 ]]; then
+	   echo "Exit code for peer probe failed : $exitc"
+	   exit 1;
+	fi
+	
+	echo "Sleeping, result was $? since (peer probe return is not synchronous)"
+	sleep 2
+
+	gluster peer status
+	sleep 2
+	echo "Now ...Creating volume $VOL $BRICK"
+	sudo gluster volume create $VOL 10.10.10.11:$BRICK 10.10.10.12:$BRICK
+	echo "Gluster volume creation status : $?"
+	sleep 2
+        echo "...Starting vol $VOL"
+        sudo gluster volume start $VOL
+        sleep 2
+	echo "result : $?"         
+	echo "...Mounting gluster to $VOL : mount = $MNT"
+	
+	mnt_cmd="sudo mkdir -m 777 $MNT && sudo mount -t glusterfs 127.0.0.1:$VOL $MNT"
+	echo "Mount Command = $mnt_cmd"
+	ssh -o "StrictHostKeyChecking no" root@10.10.10.11 "$mnt_cmd > /tmp/logmount"
+	ssh -o "StrictHostKeyChecking no" root@10.10.10.12 "$mnt_cmd > /tmp/logmount"
+        echo "Done mounting ..."
+	
+	# Now, test if gluster was mounter
+	if [ ! mount | grep -q "gluster" ] ; then 
+		echo "gluster not mounted :( :( :( "        
+		mount
+		echo "EXITING NOW ^^ MOUNT RESULTS"
+		cat /tmp/logmount
+		exit 1	
+	fi
+	 
+	#Smoke test of gluster
+        touch /mnt/glusterfs/a
+	sleep 1
+	test_cmd="ls /mnt/glusterfs/a"
+	a=$(ssh 10.10.10.11 $test_cmd); b=$(ssh 10.10.10.12 $test_cmd); 
+	if [[ ! "$a" == "$b" ]]; then
+		echo "error in gluster install: Different results $a and $b for ls.  gluster distr setup failed? exiting"
+	        exit 1;
+	fi
+
+	echo "Done testing gluster : $a $b <-- smoke test passed "
+
+	echo "Done setting up gluster.  Now moving to hbase"
+	#### HBASE Cluster SETUP ####	
+	sudo ./hbase-0.94.11/bin/start-hbase.sh
+	echo -e "Ready!\n"
+	echo "----------"
+	echo "For HBase shell, ssh as root and type: 'hbase shell'"
+	echo "'start-hbase' to start, 'stop-hbase' to stop."
+	echo -e "----------\n"
+	echo "Waiting 30 seconds to run smoke test.."
+	sleep 30
+	#Now, a quick smoke test!
+fi	
+
+if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
+
+echo "**********HBASE smoke test*************"
 sudo hbase-0.94.11/bin/hbase shell -d <<EOF
 create 't1','f1' 
 put 't1', 'row1', 'f1:a', 'val1'
@@ -103,3 +202,7 @@ scan 't1'
 EOF
 
 echo "Test result : $?"
+
+fi
+
+
