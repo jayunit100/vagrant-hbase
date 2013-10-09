@@ -1,0 +1,16 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+
+Vagrant::Config.run do |config|
+  # Every Vagrant virtual environment requires a box to build off of.
+  config.vm.box = "vagrant-fedora19"
+
+  config.vm.box_url = "s3://rhbd/vagrant/fedora-19-vagrant.box"
+
+  #config.vm.network :hostonly, "192.168.33.10"
+  #
+  config.vm.share_folder "v-data", "/vagrant", "./data"
+
+  config.vm.provision "shell", path: "data/singlenode.sh"
+
+end

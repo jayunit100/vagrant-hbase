@@ -1,0 +1,28 @@
+# -*- mode: ruby -*-
+# vi: set ft=ruby :
+VAGRANTFILE_API_VERSION = "2"
+Vagrant.configure("2") do |config|
+  vmbox = "vagrant-fedora19B"
+  vmboxurl = "https://dl.dropboxusercontent.com/u/86066173/fedora-19.box"
+
+  config.vm.define :gluster1 do |gluster1|
+    gluster1.vm.box = vmbox
+    gluster1.vm.box_url = vmboxurl
+
+    gluster1.vm.host_name = "gluster1"
+    gluster1.vm.network :private_network, ip: "10.10.10.11"
+    gluster1.vm.synced_folder "./data", "/vagrant"
+    gluster1.vm.provision "shell", path: "data/twonode.sh"
+  end
+  
+  config.vm.define :gluster2 do |gluster2|
+    gluster2.vm.box = vmbox
+    gluster2.vm.box_url = vmboxurl
+
+    gluster2.vm.host_name = "gluster2"
+    gluster2.vm.network "private_network", ip: "10.10.10.12"   
+    gluster2.vm.synced_folder "./data", "/vagrant"
+    gluster2.vm.provision "shell", path: "./data/twonode.sh"
+ end
+
+end

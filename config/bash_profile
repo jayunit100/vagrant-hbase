@@ -1,8 +1,0 @@
-#!/bin/bash
-
-#alias hbase=/home/vagrant/hbase-0.94.6.1/bin/hbase
-export HBASE_HOME="/home/vagrant/hbase-0.94.11/"
-export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64/
-alias hbase=$HBASE_HOME/bin/hbase #.tar.gz
-alias start-hbase="sudo $HBASE_HOME/bin/start-hbase.sh"
-alias stop-hbase="sudo $HBASE_HOME/bin/stop-hbase.sh"

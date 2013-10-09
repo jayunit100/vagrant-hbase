@@ -1,0 +1,48 @@
+This box will spin up a gluster volume for you on f19.
+
+
+
+To implement it:
+
+1) Install vagrant from http://downloads.vagrantup.com/
+
+2) Clone this repo !
+
+   git clone git@forge.gluster.org:vagrant/fedora19-gluster.git
+
+3) cd into this repo !
+
+   cd fedora19-gluster/
+
+4) Create a symlink called "Vagrantfile" for the type of cluster you want.
+
+   ln -s Vagrantfile_cluster Vagrantfile
+   or
+   ln -s Vagrantfile_singlenode Vagrantfile
+
+4) run "vagrant up" (or, if on a newer version of vagrant run: "vagrant up --provision")
+
+5) And ssh into your vm!   
+
+   vagrant ssh 
+
+7) Bask in the glory of your totally reproducible gluster dev environment!
+
+8) Broke something? No problem.  Just run: 
+
+   vagrant destroy && vagrant up
+
+yay !
+
+Over time we will add new Vagrantfile_* configurations.  To use them just 
+copy them into "Vagrantfile" and run "vagrant destroy && vagrant up"
+
+TODO: 
+
+- testing on kvm
+- testing on vmware
+- adding other components of the hadoop ecosystem to support hadoop gluster plugin development
+- testing on larger clusters
+- making this production deployable i.e. to ec2 etc..
+- fuse patch for higher concurrency support
+
