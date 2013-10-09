@@ -1,0 +1,13 @@
+stopping hbase
+/home/vagrant/hbase-0.94.11/bin/hbase: line 232: /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64//bin/java: No such file or directory
+/home/vagrant/hbase-0.94.11/bin/hbase: line 355: /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64//bin/java: No such file or directory
+stopping hbase
+/home/vagrant/hbase-0.94.11/bin/hbase: line 232: /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64//bin/java: No such file or directory
+/home/vagrant/hbase-0.94.11/bin/hbase: line 355: /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64//bin/java: No such file or directory
+stopping hbase
+/home/vagrant/hbase-0.94.11/bin/hbase: line 234: /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64//bin/java: No such file or directory
+/home/vagrant/hbase-0.94.11/bin/hbase: line 357: /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64//bin/java: No such file or directory
+JAVA HOME ??? /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64/
+stopping hbase
+JAVA HOME ??? /usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64/
+stopping hbase
