@@ -6,8 +6,6 @@ Vagrant.configure("2") do |config|
   #First node in the cluster.
   #HMaster
   config.vm.define :hbase1 do |hbase1|
-	#for this cache to work , run : vagrant plugin install vagrant-cachier
-	#if it causes issues, just comment it out :).
 	hbase1.cache.enable :yum
 	hbase1.vm.box = vmbox
         hbase1.vm.box_url = vmboxurl  
@@ -19,7 +17,7 @@ Vagrant.configure("2") do |config|
   end
 
   config.vm.define :hbase2 do |hbase2|
-    	hbase1.cache.enable :yum
+    	hbase2.cache.enable :yum
 	hbase2.cache.auto_detect = true
         hbase2.vm.box = vmbox
     	hbase2.vm.box_url = vmboxurl

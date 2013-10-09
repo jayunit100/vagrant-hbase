@@ -1,27 +1,27 @@
 #!/usr/bin/env bash
-iptables -F
-setenforce 0
 
-MNT=/mnt/glusterfs
+#Generic stuff
+setup () { 
+    yum install -y wget tar
+    #TODO: Freeze the version at some point so we dont have to 
+    #keep updating java_home
+    yum install -y java-1.7.0-openjdk-devel
+    yum install -y java-1.7.0-openjdk
+    yum install -y glusterfs glusterfs-server glusterfs-fuse attr psmisc
 
-#GLUSTER install, and make a local brick called /mnt/brick1
-yum install -y glusterfs glusterfs-server glusterfs-fuse
-/usr/sbin/glusterd -p /run/glusterd.pid
-BRICK=/mnt/brick1
-#Make brick
-sudo truncate -s 1G /mnt/brick1.raw ;
-yes | sudo mkfs.ext4 /mnt/brick1.raw ;
-#Make mount folder for brick
-sudo mkdir /mnt/brick1
-#Mount brick folder
-sudo mount -t ext4 -o loop /mnt/brick1.raw /mnt/brick1 ;
-#Done with initial gluster stuff... Will create  a volume 
-#Pointing to these bricks later...
+    chmod -R 777 /vagrant
+    MNT=/mnt/glusterfs
+}
 
-echo "Mounting raw brick :: DONE Mounting!!!"
+wget_hbase_94_11 () { 
+	wget http://apache.mirrors.tds.net/hbase/hbase-0.94.11/hbase-0.94.11.tar.gz -O /vagrant/hbase-0.94.11.tar.gz
 
-#Copy private key ...
-echo "-----BEGIN RSA PRIVATE KEY-----
+}
+
+setup_ssh () {
+
+	#Copy private key ...
+	echo "-----BEGIN RSA PRIVATE KEY-----
 MIIEogIBAAKCAQEA6NF8iallvQVp22WDkTkyrtvp9eWW6A8YVr+kz4TjGYe7gHzI
 w+niNltGEFHzD8+v1I2YJ6oXevct1YeS0o9HZyN1Q9qgCgzUFtdOKLv6IedplqoP
 kcmF0aYet2PkEDo3MlTBckFXPITAMzF8dJSIFo9D8HfdOV0IAdx4O7PtixWKn5y2
@@ -48,64 +48,137 @@ kda/AoGANWrLCz708y7VYgAtW2Uf1DPOIYMdvo6fxIB5i9ZfISgcJ/bbCUkFrhoH
 +vq/5CIWxCPp0f85R4qxxQ5ihxJ0YDQT9Jpx4TMss4PSavPaBH3RXow5Ohe+bYoQ
 NE5OgEXk2wVfZczCZpigBKbKZHNYcelXtTt/nP3rsCuGcM4h53s=
 -----END RSA PRIVATE KEY-----" >> /home/vagrant/.ssh/id_rsa
-#Copy vagrant credentials to root also, so root
-#can easily passwordlessly ssh around:
-cp -r /home/vagrant/.ssh /root/.ssh
-chmod -R 600 /root/.ssh
 
-#Make vagrant world r/w
-chmod -R 777 /vagrant
+	#Copy vagrant credentials to root also, so root
+	#can easily passwordlessly ssh around:
+	cp -r /home/vagrant/.ssh /root/.ssh
+	chmod -R 600 /root/.ssh
 
-#IF java is not installed...
-yum install -y wget
-yum install -y tar
+	echo 'StrictHostKeyChecking no' >> /home/vagrant/.ssh/config
+	echo 'StrictHostKeyChecking no' >> /root/.ssh/config
+} 
 
-if [ ! -f /vagrant/hbase-0.94.11.tar.gz ]; then
-        echo "Downloading hbase"
-	wget -q http://apache.mirrors.tds.net/hbase/hbase-0.94.11/hbase-0.94.11.tar.gz -O /vagrant/hbase-0.94.11.tar.gz
-fi
-echo "Hbase acquired in shared dir"
-cp /vagrant/hbase-0.94.11.tar.gz .
+createbrick () {
 
-echo "Untaring HBase tarball"
-tar -zxf hbase-0.94.11.tar.gz
-ls -altrh hb*
+	#GLUSTER install, and make a local brick called /mnt/brick1
+	#attr : for extended attributes in getBlockLoc
+	#psmisc : so you can have "killall" to kill java procs on restart. 
+	/usr/sbin/glusterd -p /run/glusterd.pid
+	BRICK=/mnt/brick1
+	#Make brick
+	sudo truncate -s 1G /mnt/brick1.raw ;
+	yes | sudo mkfs.ext4 /mnt/brick1.raw ;
+	#Make mount folder for brick
+	sudo mkdir /mnt/brick1
+	#Mount brick folder
+	sudo mount -t ext4 -o loop /mnt/brick1.raw /mnt/brick1 ;
+	#Done with initial gluster stuff... Will create  a volume 
+	#Pointing to these bricks later...
 
-#Chmod to wide open permissions so anyone can run hbase.
-#insecure but no big deal
-sudo chmod -R 777 hbase-0.94.11
+	echo "Mounting raw brick :: DONE Mounting!!!"
+}
 
-yum install -y java-1.7.0-openjdk-devel
-yum install -y java-1.7.0-openjdk
+disablesec () {
+	#Some precautions to keep security from tripping us up
+	#On the peer probe/zookeeper/ etc services.
+	iptables -F
+	systemctl stop firewalld.service
+	setenforce 0
+}
 
-#Now start back with hbase installation 
-mkdir -p /mnt/glusterfs/hbase
-if [ ! -e ".bash_profile" ]; then
-	cp /vagrant/bash_profile /home/vagrant/.bash_profile
-	sudo chmod +x /home/vagrant/.bash_profile
-fi
+installhbase () {
 
-#Make the hbase directories easy to read/write, just in case.
-sudo chmod -R 777 /mnt/glusterfs/hbase
-sudo chmod -R 777 /home/vagrant/hbase-0.94.11/
+	if [ ! -f /vagrant/hbase-0.94.11.tar.gz ]; then
+		echo "Downloading hbase"
+		wget_hbase_94_11
+	fi
+	echo "Hbase acquired in shared dir"
+	cp /vagrant/hbase-0.94.11.tar.gz .
 
-#Manually write a very simply /etc/hosts file.  
-#Otherwise there'll be all sorts of drama.
-sudo echo "127.0.0.1	hmaster" > /etc/hosts
+	echo "Untaring HBase tarball"
+	tar -zxf hbase-0.94.11.tar.gz
+	ls -altrh hb*
+	#Chmod to wide open permissions so anyone can run hbase.
+	#insecure but no big deal
+	sudo chmod -R 777 hbase-0.94.11
 
-sudo chmod -R 777 /etc/hosts
 
-cp /vagrant/hbase-site.xml /home/vagrant/hbase-0.94.11/conf/
-cp /vagrant/regionservers /home/vagrant/hbase-0.94.11/conf/
-cp /vagrant/hbase-env.sh /home/vagrant/hbase-0.94.11/conf/
+	#Now carrying on with hbase installation 
+	if [ ! -e ".bash_profile" ]; then
+		cp /vagrant/bash_profile /home/vagrant/.bash_profile
+			sudo chmod +x /home/vagrant/.bash_profile
+	fi
 
-MNT=/mnt/glusterfs
+	#Make the hbase directories easy to read/write, just in case.
+	#mkdir -p /mnt/glusterfs/hbase
+	#sudo chmod -R 777 /mnt/glusterfs/hbase
+	sudo chmod -R 777 /home/vagrant/hbase-0.94.11/
 
-echo " `hostname` Turning off iptables, again."
-iptables -F
+	#Manually write a very simply /etc/hosts file.  
+	#Otherwise there'll be all sorts of drama.
 
-#HEAD NODE ONLY, EXPECTS PROVISIONING TO HAPPEN IN ORDER
-if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
+	cp /vagrant/regionservers /home/vagrant/hbase-0.94.11/conf/
+	cp /vagrant/hbase-env.sh /home/vagrant/hbase-0.94.11/conf/
+
+	############ XML FILE #############
+        ZK=""
+	if [[ "rs1" = `hostname` ]]; then 
+	    ZK="<property><name>zookeeper.znode.parent</name><value>/hmaster</value></property>"
+	    bindaddr="10.10.10.11"
+    	elif [[ "hmaster" = `hostname` ]]; then 
+	   bindaddr="10.10.10.12"
+   	else
+	   echo "bad hostname => `hostname`"
+           exit 1
+   	fi
+	hbsite="/home/vagrant/hbase-0.94.11/conf/hbase-site.xml"
+	#### STANDARD GLUSTER CONFIG ###
+	echo "<configuration>" > $hbsite
+	echo "<property><name>hbase.cluster.distributed</name> <value>true</value></property>
+<property><name>fs.glusterfs.impl</name><value>org.apache.hadoop.fs.glusterfs.GlusterFileSystem</value></property>
+<property><name>fs.default.name</name><value>glusterfs:///</value></property>
+<property><name>fs.glusterfs.volname</name><value>HadoopVol</value></property>
+<property><name>fs.glusterfs.mount</name><value>/mnt/glusterfs</value></property>
+<property><name>fs.glusterfs.server</name><value>localhost</value></property>
+<property><name>fs.glusterfs.write.buffer.size</name><value>1024</value></property>
+<property><name>hbase.rootdir</name><value>glusterfs:///hbase</value></property>
+<property><name>hbase.zookeeper.quorum</name><value>hmaster</value></property>	  
+<property><name>hbase.master.dns.interface</name><value>lo</value></property>
+<property><name>hbase.regionserver.dns.interface</name><value>lo</value></property>
+<property><name>hbase.zookeeper.dns.interface</name><value>lo</value></property>" >> $hbsite 
+	echo "$ZK" >> $hbsite # only slave has the zk parent, not master.. this seems to be important.
+	echo "	<property><name>hbase.master.info.bindAddress</name><value>$bindaddr</value></property>" >> $hbsite
+	echo "	<property><name>hbase.regionserver.info.bindAddress</name><value>$bindaddr</value></property>" >> $hbsite
+	echo "</configuration>" >> $hbsite
+
+	#### DONE CONFIGURING XML ^^ ####
+
+	echo "Done with GENERATED XML, lines= `wc -l $hbsite`"
+	if ! cat $hbsite | grep -q "glusterfs" ; then
+		echo "xml generation failed in file \"$hbsite\" --> `cat $hbsite`"
+		exit 1
+	fi
+
+	#For HBASE, we need a squeky clean /etc/hosts file.
+	#Two main things:
+	# The static ips must be correct for hmaster and rs1
+	# The loopback address (127.0.0.1) must point to localhost for client to work
+	cp /vagrant/hosts /etc/hosts 
+	sudo chmod -R 777 /etc/hosts
+
+}
+
+#ON HEAD NODE
+head_node_setup () { 
+
+	MNT=/mnt/glusterfs
+
+	echo " `hostname` Turning off iptables, again."
+	iptables -F
+
+	mkdir -p /mnt/glusterfs/hbase
+	sudo chmod -R 777 /mnt/glusterfs/hbase
+
 	#### GLUSTER CLUSTER SETUP #####
  	sleep 1
         VOL="HadoopVol"
@@ -138,9 +211,20 @@ if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
 	fi
 	
 	echo "Sleeping, result was $? since (peer probe return is not synchronous)"
-	sleep 2
+	sleep 5
 
-	gluster peer status
+	for i in `seq 1 10`;
+	do
+		if gluster peer status | grep -q "Disconnected" ; then
+			echo "$i Peer status failed : Disconnected **** SEE BELOW ****"
+			gluster peer status
+			echo "`hostname` check: $i sleeping :( not connected somehow."
+			sleep 1
+		else
+			echo "`hostname` check: $i Connected!.."
+		fi
+	done
+
 	sleep 2
 	echo "Now ...Creating volume $VOL $BRICK"
 	sudo gluster volume create $VOL 10.10.10.11:$BRICK 10.10.10.12:$BRICK
@@ -154,8 +238,8 @@ if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
 	
 	mnt_cmd="sudo mkdir -m 777 $MNT ; sudo mount -t glusterfs 127.0.0.1:$VOL $MNT"
 	echo "Mount Command = $mnt_cmd"
-	ssh -o "StrictHostKeyChecking no" root@10.10.10.11 "$mnt_cmd > /tmp/logmount"
-	ssh -o "StrictHostKeyChecking no" root@10.10.10.12 "$mnt_cmd > /tmp/logmount"
+	ssh root@10.10.10.11 "$mnt_cmd > /tmp/logmount"
+	ssh root@10.10.10.12 "$mnt_cmd > /tmp/logmount"
         echo "Done mounting ..."
 	
 	# Now, test if gluster was mounter
@@ -176,8 +260,26 @@ if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
 		echo "error in gluster install: Different results $a and $b for ls.  gluster distr setup failed? exiting"
 	        exit 1;
 	fi
-
 	echo "Done testing gluster : $a $b <-- smoke test passed "
+
+
+	#Now, we add the glusterfs-hadoop plugin to the lib for hbase...
+	#Expected that it will be in the local directory. 
+	shim="/vagrant/glusterfs-2.0-SNAPSHOT.jar"
+	if [ -a $shim ]; then 
+		echo "$shim exists!"
+	else
+		echo "Failed: No shim jar present, download it to the shared vagrant folder and start over!"
+		ls /vagrant/
+		exit 1
+	fi
+
+	echo "NOW SYMLINKING............."
+	#Symlink the shim in each case...	
+	ssh root@10.10.10.11 ln -s /vagrant/glusterfs-2.0-SNAPSHOT.jar /home/vagrant/hbase-0.94.11/lib/glusterfs-hadoop.jar
+	echo "RESULT= $?"
+	ssh root@10.10.10.12 ln -s /vagrant/glusterfs-2.0-SNAPSHOT.jar /home/vagrant/hbase-0.94.11/lib/glusterfs-hadoop.jar
+	echo "RESULT= $?"
 
 	echo "Done setting up gluster.  Now moving to hbase"
 	#### HBASE Cluster SETUP ####	
@@ -188,21 +290,37 @@ if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
 	echo "'start-hbase' to start, 'stop-hbase' to stop."
 	echo -e "----------\n"
 	echo "Waiting 30 seconds to run smoke test.."
-	sleep 30
-	#Now, a quick smoke test!
-fi	
+	sleep 20
+}
 
-if ping -W 2 -c 1 10.10.10.12 > /dev/null 2>&1 ; then
+smoketest () {
+	echo "done"
+	#Finally: A smoke test of hbase.
+	#	if [[ "hmaster" = `hostname` ]]; then
+	#	echo "**********HBASE smoke test*************"
+	#		sudo hbase-0.94.11/bin/hbase shell -d <<EOF
+	#create 't1','f1' 
+	#put 't1', 'row1', 'f1:a', 'val1'
+	#scan 't1'
+	#EOF
+	#	echo "Test result : $?"
+	#	fi
+}
 
-echo "**********HBASE smoke test*************"
-sudo hbase-0.94.11/bin/hbase shell -d <<EOF
-create 't1','f1' 
-put 't1', 'row1', 'f1:a', 'val1'
-scan 't1'
-EOF
 
-echo "Test result : $?"
+setup
 
+#Important: If you dont do this, one peer will be "disconnected"
+disablesec 
+
+createbrick 
+
+setup_ssh
+
+installhbase
+
+if [[ "hmaster" = `hostname` ]]; then
+	head_node_setup
 fi
-
+smoketest
 

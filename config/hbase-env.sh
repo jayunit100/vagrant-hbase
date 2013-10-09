@@ -23,7 +23,10 @@
 
 # The java implementation to use.  Java 1.6 required.
 #export JAVA_HOME=/usr/lib/jvm/jre1.6.0_34/
-export JAVA_HOME=/usr/lib/jvm/java-1.7.0-openjdk-1.7.0.60-2.4.2.5.fc19.x86_64/
+#export JAVA_HOME=`find /usr/lib/jvm/ -name *64 | tail -1`
+export JAVA_HOME="/usr/lib/jvm/java-1.7.0-openjdk.x86_64"
+echo "JAVA HOME -> $JAVA_HOME " >> /tmp/javahome
+
 # The maximum amount of heap to use, in MB. Default is 1000.
 # export HBASE_HEAPSIZE=1000
 
