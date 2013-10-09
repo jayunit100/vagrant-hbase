@@ -266,6 +266,7 @@ head_node_setup () {
 	#Now, we add the glusterfs-hadoop plugin to the lib for hbase...
 	#Expected that it will be in the local directory. 
 	shim="/vagrant/glusterfs-2.0-SNAPSHOT.jar"
+	#shim="/vagrant/glusterfs-hadoop-2.1.4.jar"
 	if [ -a $shim ]; then 
 		echo "$shim exists!"
 	else
@@ -276,9 +277,9 @@ head_node_setup () {
 
 	echo "NOW SYMLINKING............."
 	#Symlink the shim in each case...	
-	ssh root@10.10.10.11 ln -s /vagrant/glusterfs-2.0-SNAPSHOT.jar /home/vagrant/hbase-0.94.11/lib/glusterfs-hadoop.jar
+	ssh root@10.10.10.11 ln -s $shim /home/vagrant/hbase-0.94.11/lib/glusterfs-hadoop.jar
 	echo "RESULT= $?"
-	ssh root@10.10.10.12 ln -s /vagrant/glusterfs-2.0-SNAPSHOT.jar /home/vagrant/hbase-0.94.11/lib/glusterfs-hadoop.jar
+	ssh root@10.10.10.12 ln -s $shim /home/vagrant/hbase-0.94.11/lib/glusterfs-hadoop.jar
 	echo "RESULT= $?"
 
 	echo "Done setting up gluster.  Now moving to hbase"
@@ -297,14 +298,12 @@ smoketest () {
 	echo "done"
 	#Finally: A smoke test of hbase.
 	#	if [[ "hmaster" = `hostname` ]]; then
-	#	echo "**********HBASE smoke test*************"
-	#		sudo hbase-0.94.11/bin/hbase shell -d <<EOF
-	#create 't1','f1' 
-	#put 't1', 'row1', 'f1:a', 'val1'
-	#scan 't1'
-	#EOF
-	#	echo "Test result : $?"
-	#	fi
+		echo "**********HBASE smoke test*************"
+	sudo hbase-0.94.11/bin/hbase shell -d <<EOF
+create 't1','f1' 
+put 't1', 'row1', 'f1:a', 'val1'
+scan 't1'
+EOF
 }
 
 
@@ -319,8 +318,8 @@ setup_ssh
 
 installhbase
 
-if [[ "hmaster" = `hostname` ]]; then
+if [[ "hmaster" == `hostname` ]]; then
 	head_node_setup
+	smoketest
 fi
-smoketest
 
